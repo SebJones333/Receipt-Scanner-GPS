@@ -5,23 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
+        /* LAYOUT LOCK: Prevents the "scrolled down" bug */
+        html, body {
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            position: fixed;
+            margin: 0; 
+            padding: 0;
+            background: #f0f2f5;
+        }
+
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
-            margin: 0; padding: 0; 
-            background: #f0f2f5;
-            display: flex; flex-direction: column; height: 100vh;
-            overflow: hidden;
+            display: flex; 
+            flex-direction: column; 
         }
 
         /* Full-Frame Camera Preview */
         #camera-container {
             width: 100%;
-            height: 40vh;
+            height: 40vh; /* Takes up 40% of screen height */
             background: #000;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            /* Handles iPhone notch/safe areas */
+            padding-top: env(safe-area-inset-top);
         }
 
         #video {
@@ -34,35 +45,67 @@
         #ui-container {
             flex: 1;
             padding: 10px 15px;
+            /* Only this area scrolls if content is long */
             overflow-y: auto;
-            display: flex; flex-direction: column; align-items: center;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
         }
 
-        #status { font-size: 13px; font-weight: bold; color: #666; margin: 5px 0; }
+        #status { 
+            font-size: 13px; 
+            font-weight: bold; 
+            color: #666; 
+            margin: 5px 0; 
+            text-align: center;
+        }
 
         button {
-            width: 100%; max-width: 320px;
-            padding: 14px; font-size: 17px; font-weight: bold;
-            border-radius: 10px; border: none; cursor: pointer;
+            width: 100%; 
+            max-width: 320px;
+            padding: 14px; 
+            font-size: 17px; 
+            font-weight: bold;
+            border-radius: 10px; 
+            border: none; 
+            cursor: pointer;
             margin-bottom: 8px;
+            display: block;
         }
 
         #snap { background: #007bff; color: white; }
         #saveBtn { background: #28a745; color: white; }
 
         #result-area {
-            width: 100%; max-width: 320px;
-            background: white; padding: 15px;
-            border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%; 
+            max-width: 320px;
+            background: white; 
+            padding: 15px;
+            border-radius: 12px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
             margin-top: 5px;
+            margin-bottom: 20px; /* Extra space at bottom */
         }
 
         .input-group { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; font-weight: bold; color: #999; margin-bottom: 2px; text-transform: uppercase; }
+        label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: bold; 
+            color: #999; 
+            margin-bottom: 2px; 
+            text-transform: uppercase; 
+        }
+        
         input, select {
-            width: 100%; padding: 10px; border: 1px solid #ddd;
-            border-radius: 8px; font-size: 17px; box-sizing: border-box;
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ddd;
+            border-radius: 8px; 
+            font-size: 17px; 
+            box-sizing: border-box;
             background: #fdfdfd;
         }
 
@@ -78,7 +121,7 @@
     </div>
 
     <div id="ui-container">
-        <p id="status">Ready to scan...</p>
+        <p id="status">Initializing GPS & Camera...</p>
         
         <button id="snap">SCAN RECEIPT</button>
 
