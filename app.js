@@ -9,20 +9,30 @@ const editTotal = document.getElementById('editTotal');
 const canvas = document.getElementById('canvas');
 
 let currentPhoto = null; 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3BhcNWXYfWsdoDN_hWaEl1cDaha3gp2jWGTCQ2lMy4cUMutAW1Ahi2-d5pf5hKjLd/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygcTi6bHRTU-59xPJQ9xRxkvvNa0QdfM1PGbVd0A9lS96wJk-6KJOFQ9I08OWNah2ITA/exec';
+
+let userLocation = { lat: null, lng: null };
 
 async function setupCamera() {
+    // Request GPS
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            userLocation.lat = pos.coords.latitude;
+            userLocation.lng = pos.coords.longitude;
+        },
+        (err) => { console.log("GPS denied"); }
+    );
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment", width: { ideal: 1920 } }, 
+            video: { facingMode: "environment" }, 
             audio: false 
         });
         video.srcObject = stream;
     } catch (err) {
-        status.innerText = "Error: Please allow camera access.";
+        status.innerText = "Error: Camera access denied.";
     }
 }
-
 snap.addEventListener('click', async () => {
     status.innerText = "Capturing...";
     canvas.width = video.videoWidth;
