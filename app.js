@@ -9,7 +9,7 @@ const editTotal = document.getElementById('editTotal');
 const canvas = document.getElementById('canvas');
 
 // Replace this with your latest Deployment URL
-const GOOGLE_SCRIPT_URL = 'YOUR_DEPLOYED_URL_HERE'; 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxj7LfaA06MvcBFiMXXMM8X2VGzYf6_oQxzbWgHI2GJE6kgOgHLdX91ioNeLDWYv1jszg/exec'; 
 
 let userLocation = { lat: null, lng: null };
 let currentPhoto = null;
