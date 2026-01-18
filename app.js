@@ -9,7 +9,7 @@ const editTotal = document.getElementById('editTotal');
 const canvas = document.getElementById('canvas');
 
 let currentPhoto = null; 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzF3L6cM1uqwlViTtLV634j0ih9O1GqJuvvUMF-8k1Mql0Cido-KPWdHJjRbYrcrsdA/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxj7LfaA06MvcBFiMXXMM8X2VGzYf6_oQxzbWgHI2GJE6kgOgHLdX91ioNeLDWYv1jszg/exec';
 
 let userLocation = { lat: null, lng: null };
 
