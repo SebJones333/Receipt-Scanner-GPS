@@ -14,25 +14,43 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmb5WYfb0gQe
 let userLocation = { lat: null, lng: null };
 
 async function setupCamera() {
-    // Request GPS
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            userLocation.lat = pos.coords.latitude;
-            userLocation.lng = pos.coords.longitude;
-        },
-        (err) => { console.log("GPS denied"); }
-    );
+    status.innerText = "Requesting GPS & Camera...";
 
+    // 1. Get GPS with High Accuracy
+    // We wrap this in a promise so the app waits for the answer
+    const getCoords = () => {
+        return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userLocation.lat = pos.coords.latitude;
+                    userLocation.lng = pos.coords.longitude;
+                    console.log("GPS Captured:", userLocation);
+                    resolve();
+                },
+                (err) => {
+                    console.log("GPS Denied or Timeout");
+                    resolve(); // Continue anyway even if GPS fails
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        });
+    };
+
+    await getCoords();
+
+    // 2. Setup Camera
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "environment" }, 
             audio: false 
         });
         video.srcObject = stream;
+        status.innerText = "Ready.";
     } catch (err) {
         status.innerText = "Error: Camera access denied.";
     }
 }
+
 snap.addEventListener('click', async () => {
     status.innerText = "Capturing...";
     canvas.width = video.videoWidth;
@@ -103,15 +121,16 @@ function processSummary(rawText) {
     document.getElementById('status').innerText = "Double-check the Total & Date.";
 }
 
+// Ensure the upload sends the GPS data to your Google Script
 async function uploadToCloud() {
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
     status.innerText = "Saving to Google...";
 
     const payload = {
-        store: editStore.value,
-        date: editDate.value,
-        total: editTotal.value,
+        store: document.getElementById('editStore').value,
+        date: document.getElementById('editDate').value,
+        total: document.getElementById('editTotal').value,
         photo: currentPhoto,
         lat: userLocation.lat,
         lng: userLocation.lng
@@ -123,8 +142,8 @@ async function uploadToCloud() {
             mode: 'no-cors',
             body: JSON.stringify(payload)
         });
-        status.innerText = "Success! Logged to " + editDate.value.split(/[\/-]/)[0]; 
-        resultArea.style.display = "none";
+        status.innerText = "Success!";
+        document.getElementById('result-area').style.display = "none";
         btn.disabled = false;
     } catch (e) {
         status.innerText = "Upload Failed.";
