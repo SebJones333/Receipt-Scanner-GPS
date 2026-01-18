@@ -112,7 +112,9 @@ async function uploadToCloud() {
         store: editStore.value,
         date: editDate.value,
         total: editTotal.value,
-        photo: currentPhoto
+        photo: currentPhoto,
+        lat: userLocation.lat,
+        lng: userLocation.lng
     };
 
     try {
