@@ -9,45 +9,50 @@ const editTotal = document.getElementById('editTotal');
 const canvas = document.getElementById('canvas');
 
 let currentPhoto = null; 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmb5WYfb0gQe2mrx43X4Xdon-UT188RRIuKpK00KeSXbUl4OP4YeqSF-zpuov0YvDYGQ/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzF3L6cM1uqwlViTtLV634j0ih9O1GqJuvvUMF-8k1Mql0Cido-KPWdHJjRbYrcrsdA/exec';
 
 let userLocation = { lat: null, lng: null };
 
 async function setupCamera() {
-    status.innerText = "Requesting GPS & Camera...";
+    status.innerText = "Locating your GPS...";
 
-    // 1. Get GPS with High Accuracy
-    // We wrap this in a promise so the app waits for the answer
+    // 1. FORCE THE PHONE TO FIND YOU FIRST
     const getCoords = () => {
         return new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     userLocation.lat = pos.coords.latitude;
                     userLocation.lng = pos.coords.longitude;
-                    console.log("GPS Captured:", userLocation);
+                    status.innerText = "GPS Fixed. Starting Camera...";
+                    console.log("GPS Found:", userLocation);
                     resolve();
                 },
                 (err) => {
-                    console.log("GPS Denied or Timeout");
-                    resolve(); // Continue anyway even if GPS fails
+                    // If GPS fails, we still allow the app to work
+                    status.innerText = "GPS Failed. Using Camera only.";
+                    console.warn("GPS Error Code:", err.code);
+                    resolve(); 
                 },
-                { enableHighAccuracy: true, timeout: 5000 }
+                { 
+                    enableHighAccuracy: true, // Forces use of actual GPS hardware
+                    timeout: 8000,            // Give it 8 seconds to wake up
+                    maximumAge: 0             // Don't use an old/stale location
+                }
             );
         });
     };
 
     await getCoords();
 
-    // 2. Setup Camera
+    // 2. NOW START THE CAMERA
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment" }, 
+            video: { facingMode: "environment", width: { ideal: 1920 } }, 
             audio: false 
         });
         video.srcObject = stream;
-        status.innerText = "Ready.";
     } catch (err) {
-        status.innerText = "Error: Camera access denied.";
+        status.innerText = "Camera Error: Please refresh and allow access.";
     }
 }
 
