@@ -1,4 +1,3 @@
-
 const video = document.getElementById('video');
 const snap = document.getElementById('snap');
 const status = document.getElementById('status');
@@ -7,44 +6,47 @@ const editStore = document.getElementById('editStore');
 const editDate = document.getElementById('editDate');
 const editTotal = document.getElementById('editTotal');
 const canvas = document.getElementById('canvas');
+const otherGroup = document.getElementById('otherStoreGroup');
+const customStoreInput = document.getElementById('customStoreName');
 
-let currentPhoto = null; 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxj7LfaA06MvcBFiMXXMM8X2VGzYf6_oQxzbWgHI2GJE6kgOgHLdX91ioNeLDWYv1jszg/exec';
-
+let currentPhoto = null;
 let userLocation = { lat: null, lng: null };
 
-async function setupCamera() {
-    status.innerText = "Locating your GPS...";
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxj7LfaA06MvcBFiMXXMM8X2VGzYf6_oQxzbWgHI2GJE6kgOgHLdX91ioNeLDWYv1jszg/exec';
 
-    // 1. FORCE THE PHONE TO FIND YOU FIRST
+async function setupCamera() {
+    status.innerText = "Fixing GPS Location...";
+    
     const getCoords = () => {
         return new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
+                async (pos) => {
                     userLocation.lat = pos.coords.latitude;
                     userLocation.lng = pos.coords.longitude;
-                    status.innerText = "GPS Fixed. Starting Camera...";
-                    console.log("GPS Found:", userLocation);
+                    
+                    // PING SCRIPT FOR LOCATION MATCH
+                    try {
+                        const resp = await fetch(`${GOOGLE_SCRIPT_URL}?lat=${userLocation.lat}&lng=${userLocation.lng}`);
+                        const matchedStore = await resp.text();
+                        if (matchedStore !== "Other") {
+                            editStore.value = matchedStore;
+                            status.innerText = `GPS Match: ${matchedStore}`;
+                        } else {
+                            status.innerText = "GPS Fixed (No Match Found)";
+                        }
+                    } catch (e) {
+                        status.innerText = "GPS Fixed (Sync Error)";
+                    }
                     resolve();
                 },
-                (err) => {
-                    // If GPS fails, we still allow the app to work
-                    status.innerText = "GPS Failed. Using Camera only.";
-                    console.warn("GPS Error Code:", err.code);
-                    resolve(); 
-                },
-                { 
-                    enableHighAccuracy: true, // Forces use of actual GPS hardware
-                    timeout: 8000,            // Give it 8 seconds to wake up
-                    maximumAge: 0             // Don't use an old/stale location
-                }
+                (err) => { status.innerText = "GPS Failed. Select store manually."; resolve(); },
+                { enableHighAccuracy: true, timeout: 8000 }
             );
         });
     };
 
     await getCoords();
 
-    // 2. NOW START THE CAMERA
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "environment", width: { ideal: 1920 } }, 
@@ -52,90 +54,67 @@ async function setupCamera() {
         });
         video.srcObject = stream;
     } catch (err) {
-        status.innerText = "Camera Error: Please refresh and allow access.";
+        status.innerText = "Camera access denied.";
     }
 }
 
 snap.addEventListener('click', async () => {
-    status.innerText = "Capturing...";
+    status.innerText = "Scanning text...";
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     currentPhoto = canvas.toDataURL('image/jpeg', 0.9);
     
-    status.innerText = "Scanning for Date & Total...";
     try {
         const { data: { text } } = await Tesseract.recognize(currentPhoto, 'eng');
-        processSummary(text);
-    } catch (error) {
-        status.innerText = "Error: Scan failed.";
+        processOCR(text);
+    } catch (e) {
+        status.innerText = "OCR Failed. Enter data manually.";
+        resultArea.style.display = "block";
     }
 });
 
-function processSummary(rawText) {
+function processOCR(rawText) {
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 1);
     
-    // 1. EXTRACT DATE
     const dateMatch = rawText.match(/(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/);
-    const date = dateMatch ? dateMatch[0] : new Date().toLocaleDateString();
+    editDate.value = dateMatch ? dateMatch[0] : new Date().toLocaleDateString();
 
-    // 2. EXTRACT TOTAL (The "Kroger-Safe" Logic)
     let candidates = [];
-    
     lines.forEach((line, index) => {
-        const upper = line.toUpperCase();
-        
-        // HARD BLOCK: If these words appear, we DO NOT want this number
-        const isSavingsLine = upper.includes("SAVINGS") || 
-                              upper.includes("SAVED") || 
-                              upper.includes("POINTS") || 
-                              upper.includes("YOU") ||
-                              upper.includes("COUPON") ||
-                              upper.includes("DISCOUNT");
-
-        // Regex finds a price (e.g., 98.56) at the end of the line
+        const up = line.toUpperCase();
+        if (up.includes("SAVINGS") || up.includes("POINTS") || up.includes("YOU")) return;
         const priceMatch = line.match(/(\d+[\.,]\d{2})[^\d]*$/);
-        
-        if (priceMatch && !isSavingsLine) {
+        if (priceMatch) {
             const val = parseFloat(priceMatch[1].replace(',', '.'));
-            
             let score = 0;
-            // High Priority Keywords
-            if (upper.includes("BALANCE") || upper.includes("TOTAL") || upper.includes("DUE")) score += 20;
-            // Payment Keywords (Kroger often lists the Mastercard amount as the final total)
-            if (upper.includes("MASTERCARD") || upper.includes("VISA") || upper.includes("DEBIT") || upper.includes("TENDER")) score += 15;
-            // Position Weight (Numbers at the very bottom are more likely to be the total)
-            if (index > lines.length * 0.8) score += 5;
-
+            if (up.includes("TOTAL") || up.includes("BALANCE") || up.includes("DUE")) score += 20;
+            if (index > lines.length * 0.7) score += 5;
             candidates.push({ val, score, index });
         }
     });
 
-    // Sort: Best score first. If scores are equal, take the one lower down the receipt.
     candidates.sort((a, b) => (b.score - a.score) || (b.index - a.index));
-
-    let finalTotal = "0.00";
-    if (candidates.length > 0) {
-        finalTotal = candidates[0].val.toFixed(2);
-    }
-
-    // 3. UPDATE UI
-    document.getElementById('editDate').value = date;
-    document.getElementById('editTotal').value = finalTotal;
-    document.getElementById('result-area').style.display = "block";
-    document.getElementById('status').innerText = "Double-check the Total & Date.";
+    editTotal.value = candidates.length > 0 ? candidates[0].val.toFixed(2) : "0.00";
+    
+    resultArea.style.display = "block";
+    status.innerText = "Review and Save.";
 }
 
-// Ensure the upload sends the GPS data to your Google Script
+editStore.addEventListener('change', () => {
+    otherGroup.style.display = (editStore.value === "Other") ? "block" : "none";
+});
+
 async function uploadToCloud() {
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
-    status.innerText = "Saving to Google...";
+    status.innerText = "Uploading...";
 
     const payload = {
-        store: document.getElementById('editStore').value,
-        date: document.getElementById('editDate').value,
-        total: document.getElementById('editTotal').value,
+        store: editStore.value,
+        customStore: customStoreInput.value,
+        date: editDate.value,
+        total: editTotal.value,
         photo: currentPhoto,
         lat: userLocation.lat,
         lng: userLocation.lng
@@ -147,11 +126,12 @@ async function uploadToCloud() {
             mode: 'no-cors',
             body: JSON.stringify(payload)
         });
-        status.innerText = "Success!";
-        document.getElementById('result-area').style.display = "none";
+        status.innerText = "Success! Logged.";
+        resultArea.style.display = "none";
         btn.disabled = false;
+        customStoreInput.value = "";
     } catch (e) {
-        status.innerText = "Upload Failed.";
+        status.innerText = "Upload failed.";
         btn.disabled = false;
     }
 }
